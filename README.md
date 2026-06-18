@@ -267,7 +267,7 @@ Create `.env` file in `backend/` directory:
 # Database Configuration
 DB_HOST=localhost
 DB_USER=root
-DB_PASS=Ayyappan@69
+DB_PASS=*****
 DB_NAME=project_management
 
 # JWT Configuration
@@ -275,7 +275,7 @@ JWT_SECRET=someverylongrandomsecretkey123
 
 # Email Configuration
 EMAIL_USER=supportprojecthub@gmail.com
-EMAIL_PASS=qgibufsbyexgapiy
+EMAIL_PASS=******
 EMAIL_FROM="ProjectHub <supportprojecthub@gmail.com>"
 
 # Server Configuration
