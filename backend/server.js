@@ -7,6 +7,8 @@ require('./models'); // load all models and associations
 
 const app = express();
 
+app.set('trust proxy', 1); // Required for Render — reads correct IP from X-Forwarded-For
+
 app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());

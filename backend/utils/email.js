@@ -1,7 +1,7 @@
 const nodemailer = require('nodemailer');
+const net = require('net');
 
 // Strip any accidental surrounding quotes from env vars
-// (common issue when copy-pasting into Render dashboard)
 const emailUser = (process.env.EMAIL_USER || '').replace(/^["']|["']$/g, '').trim();
 const emailPass = (process.env.EMAIL_PASS || '').replace(/^["']|["']$/g, '').trim();
 
@@ -11,11 +11,15 @@ if (!emailUser || !emailPass) {
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
+  port: 587,
+  secure: false,          // STARTTLS on 587
+  family: 4,              // Force IPv4 — Render free tier blocks IPv6
   auth: {
     user: emailUser,
     pass: emailPass,
+  },
+  tls: {
+    rejectUnauthorized: true,
   },
   connectionTimeout: 20000,
   greetingTimeout: 20000,
@@ -28,7 +32,6 @@ transporter.verify((err) => {
     console.error('[Email] SMTP verify FAILED:', err.message);
     console.error('[Email] EMAIL_USER:', emailUser || '(empty)');
     console.error('[Email] EMAIL_PASS length:', emailPass.length, '(should be 16 for Gmail App Password)');
-    console.error('[Email] Fix: Go to Render dashboard > Environment and set EMAIL_USER and EMAIL_PASS without quotes.');
   } else {
     console.log('[Email] SMTP connection verified — ready to send as', emailUser);
   }
