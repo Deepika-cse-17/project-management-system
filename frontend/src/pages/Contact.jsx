@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import api from '../services/api';
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -8,42 +9,55 @@ export default function Contact() {
     message: ''
   });
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [slowNotice, setSlowNotice] = useState(false);
+  const slowTimer = useRef(null);
+
+  useEffect(() => () => clearTimeout(slowTimer.current), []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
-
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSubmitted(false);
+    setSlowNotice(false);
     setLoading(true);
+    slowTimer.current = setTimeout(() => setSlowNotice(true), 4000);
 
     try {
-      await fetch('http://localhost:5000/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
+      await api.post('/contact', formData);
       setSubmitted(true);
       setFormData({ name: '', email: '', subject: '', message: '' });
-      setTimeout(() => setSubmitted(false), 3000);
+      setTimeout(() => setSubmitted(false), 5000);
     } catch (err) {
-      setError('Unable to send message. Please try again.');
+      setError(err.response?.data?.message || 'Unable to send message. Please try again.');
     } finally {
+      clearTimeout(slowTimer.current);
       setLoading(false);
+      setSlowNotice(false);
     }
   };
 
   return (
     <div className="landing-page">
+      {/* Loading overlay */}
+      {loading && (
+        <div className="loading-overlay">
+          <div className="loading-spinner"></div>
+          <p className="loading-message">Sending your message…</p>
+          {slowNotice && (
+            <p className="loading-wake-notice">
+              ⏳ The server is waking up from sleep.<br />This can take up to 30 seconds on first load.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Page Header */}
       <section className="page-header">
         <div className="container-main">
@@ -59,7 +73,7 @@ export default function Contact() {
             <div className="contact-info">
               <h2>Get in Touch</h2>
               <p>
-                Have questions about ProjectHub? We'd love to hear from you. 
+                Have questions about ProjectHub? We'd love to hear from you.
                 Send us a message and we'll respond as soon as possible.
               </p>
 
@@ -79,9 +93,10 @@ export default function Contact() {
               <form onSubmit={handleSubmit} className="contact-form">
                 {submitted && (
                   <div className="alert alert-success">
-                    Thank you for your message! We'll get back to you soon.
+                    ✓ Thank you! Your message has been sent. We'll get back to you soon.
                   </div>
                 )}
+                {error && <div className="alert alert-danger">{error}</div>}
 
                 <div className="form-group-custom">
                   <label>Name</label>
@@ -135,9 +150,13 @@ export default function Contact() {
                   ></textarea>
                 </div>
 
-                {error && <div className="alert alert-danger">{error}</div>}
-                <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
-                  {loading ? 'Sending message...' : 'Send Message'}
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ width: '100%' }}
+                  disabled={loading}
+                >
+                  {loading ? 'Sending...' : 'Send Message'}
                 </button>
               </form>
             </div>
