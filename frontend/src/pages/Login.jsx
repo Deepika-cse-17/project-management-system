@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 
@@ -6,12 +6,22 @@ export default function Login() {
   const [form, setForm] = useState({ email: '', password: '', rememberMe: false });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [slowNotice, setSlowNotice] = useState(false);
+  const slowTimer = useRef(null);
   const navigate = useNavigate();
+
+  // Clean up timer on unmount
+  useEffect(() => () => clearTimeout(slowTimer.current), []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSlowNotice(false);
     setLoading(true);
+
+    // If the request takes more than 4 seconds, show wake-up notice
+    slowTimer.current = setTimeout(() => setSlowNotice(true), 4000);
+
     try {
       const { data } = await api.post('/auth/login', { email: form.email, password: form.password });
       localStorage.setItem('token', data.token);
@@ -23,12 +33,27 @@ export default function Login() {
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed. Please try again.');
     } finally {
+      clearTimeout(slowTimer.current);
       setLoading(false);
+      setSlowNotice(false);
     }
   };
 
   return (
     <div className="auth-container">
+      {/* Full-screen loading overlay */}
+      {loading && (
+        <div className="loading-overlay">
+          <div className="loading-spinner"></div>
+          <p className="loading-message">Signing in…</p>
+          {slowNotice && (
+            <p className="loading-wake-notice">
+              ⏳ The server is waking up from sleep.<br />This can take up to 30 seconds on first load.
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="auth-split-single">
         {/* Login Form */}
         <div className="auth-right">

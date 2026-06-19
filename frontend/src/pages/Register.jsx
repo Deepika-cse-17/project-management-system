@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 
@@ -7,7 +7,12 @@ export default function Register() {
   const [error, setError] = useState('');
   const [emailError, setEmailError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [slowNotice, setSlowNotice] = useState(false);
+  const slowTimer = useRef(null);
   const navigate = useNavigate();
+
+  // Clean up timer on unmount
+  useEffect(() => () => clearTimeout(slowTimer.current), []);
 
   const validatePassword = (pwd) => {
     const hasUpper = /[A-Z]/.test(pwd);
@@ -31,6 +36,8 @@ export default function Register() {
     }
 
     setLoading(true);
+    setSlowNotice(false);
+    slowTimer.current = setTimeout(() => setSlowNotice(true), 4000);
     try {
       await api.post('/auth/register', form);
       navigate('/login');
@@ -57,12 +64,27 @@ export default function Register() {
         setError('Registration failed');
       }
     } finally {
+      clearTimeout(slowTimer.current);
       setLoading(false);
+      setSlowNotice(false);
     }
   };
 
   return (
     <div className="auth-container">
+      {/* Full-screen loading overlay */}
+      {loading && (
+        <div className="loading-overlay">
+          <div className="loading-spinner"></div>
+          <p className="loading-message">Creating your account…</p>
+          {slowNotice && (
+            <p className="loading-wake-notice">
+              ⏳ The server is waking up from sleep.<br />This can take up to 30 seconds on first load.
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="auth-split-single">
         {/* Registration Form */}
         <div className="auth-right">
