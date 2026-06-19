@@ -22,10 +22,10 @@ export default function ForgotPassword() {
     slowTimer.current = setTimeout(() => setSlowNotice(true), 4000);
     try {
       await api.post('/auth/forgot-password', { email });
-      setMessage('If an account exists, an OTP was sent to that email.');
-      setTimeout(() => navigate(`/reset-password?email=${encodeURIComponent(email)}`), 800);
+      setMessage('OTP sent! Check your inbox (and spam folder). Redirecting…');
+      setTimeout(() => navigate(`/reset-password?email=${encodeURIComponent(email)}`), 2000);
     } catch (err) {
-      setError(err.response?.data?.message || 'Request failed');
+      setError(err.response?.data?.message || 'Failed to send OTP. Please try again.');
     } finally {
       clearTimeout(slowTimer.current);
       setLoading(false);

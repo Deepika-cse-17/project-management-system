@@ -1,94 +1,96 @@
-﻿import { Link, useNavigate } from 'react-router-dom';
+﻿import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 
 export default function Navbar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const isLoggedIn = !!localStorage.getItem('token');
-  const [navOpen, setNavOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('rememberMe');
     localStorage.removeItem('userEmail');
+    setMenuOpen(false);
     navigate('/login');
   };
 
-  // Close the mobile menu when any nav link is clicked
-  const closeNav = () => setNavOpen(false);
+  const close = () => setMenuOpen(false);
+
+  const isActive = (path) => location.pathname === path;
 
   return (
-    <nav className="navbar navbar-expand-lg navbar-enhanced sticky-top">
-      <div className="container-main d-flex align-items-center">
+    <nav className="nav-bar">
+      <div className="nav-inner">
+
         {/* Brand */}
-        <Link className="navbar-brand navbar-brand-logo me-3" to="/" onClick={closeNav}>
-          <span>ProjectHub</span>
+        <Link className="nav-brand" to="/" onClick={close}>
+          ProjectHub
         </Link>
 
-        {/* Navbar Toggle Button */}
+        {/* Hamburger — mobile only */}
         <button
-          className="navbar-toggler"
-          type="button"
-          aria-controls="mainNav"
-          aria-expanded={navOpen}
-          aria-label="Toggle navigation"
-          onClick={() => setNavOpen(prev => !prev)}
+          className={`nav-hamburger${menuOpen ? ' open' : ''}`}
+          onClick={() => setMenuOpen(p => !p)}
+          aria-label="Toggle menu"
+          aria-expanded={menuOpen}
         >
-          <span className="navbar-toggler-icon"></span>
+          <span />
+          <span />
+          <span />
         </button>
 
-        {/* Navigation Menu — controlled via React state, no Bootstrap JS needed */}
-        <div className={`navbar-collapse${navOpen ? ' show' : ' collapse'}`} id="mainNav">
-          <ul className="navbar-nav ms-auto align-items-lg-center gap-2">
-            {isLoggedIn ? (
-              <>
-                <li className="nav-item">
-                  <Link className="nav-link" to="/dashboard" onClick={closeNav}>Dashboard</Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" to="/projects" onClick={closeNav}>Projects</Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" to="/" onClick={closeNav}>Home</Link>
-                </li>
-                <li className="nav-item ms-lg-2">
-                  <button
-                    className="btn btn-outline-secondary btn-sm"
-                    onClick={() => { closeNav(); logout(); }}
-                    style={{ marginTop: '8px', marginBottom: '8px' }}
-                  >
-                    Logout
-                  </button>
-                </li>
-              </>
-            ) : (
-              <>
-                <li className="nav-item">
-                  <Link className="nav-link" to="/" onClick={closeNav}>Home</Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" to="/features" onClick={closeNav}>Features</Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" to="/about" onClick={closeNav}>About</Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" to="/contact" onClick={closeNav}>Contact</Link>
-                </li>
-                <li className="nav-item ms-lg-2">
-                  <Link className="btn btn-outline-primary btn-sm" to="/login" onClick={closeNav}>
-                    Login
-                  </Link>
-                </li>
-                <li className="nav-item ms-2">
-                  <Link className="btn btn-primary btn-sm" to="/register" onClick={closeNav}>
-                    Sign Up
-                  </Link>
-                </li>
-              </>
-            )}
-          </ul>
+        {/* Desktop links */}
+        <div className="nav-links-desktop">
+          {isLoggedIn ? (
+            <>
+              <Link className={`nav-link-item${isActive('/') ? ' active' : ''}`} to="/">Home</Link>
+              <Link className={`nav-link-item${isActive('/dashboard') ? ' active' : ''}`} to="/dashboard">Dashboard</Link>
+              <Link className={`nav-link-item${isActive('/projects') ? ' active' : ''}`} to="/projects">Projects</Link>
+              <Link className={`nav-link-item${isActive('/contact') ? ' active' : ''}`} to="/contact">Contact</Link>
+              <button className="nav-btn-outline" onClick={logout}>Logout</button>
+            </>
+          ) : (
+            <>
+              <Link className={`nav-link-item${isActive('/') ? ' active' : ''}`} to="/">Home</Link>
+              <Link className={`nav-link-item${isActive('/features') ? ' active' : ''}`} to="/features">Features</Link>
+              <Link className={`nav-link-item${isActive('/about') ? ' active' : ''}`} to="/about">About</Link>
+              <Link className={`nav-link-item${isActive('/contact') ? ' active' : ''}`} to="/contact">Contact</Link>
+              <Link className="nav-btn-outline" to="/login">Login</Link>
+              <Link className="nav-btn-solid" to="/register">Sign Up</Link>
+            </>
+          )}
         </div>
       </div>
+
+      {/* Mobile drawer */}
+      <div className={`nav-drawer${menuOpen ? ' open' : ''}`}>
+        <div className="nav-drawer-inner">
+          {isLoggedIn ? (
+            <>
+              <Link className={`nav-drawer-link${isActive('/') ? ' active' : ''}`} to="/" onClick={close}>Home</Link>
+              <Link className={`nav-drawer-link${isActive('/dashboard') ? ' active' : ''}`} to="/dashboard" onClick={close}>Dashboard</Link>
+              <Link className={`nav-drawer-link${isActive('/projects') ? ' active' : ''}`} to="/projects" onClick={close}>Projects</Link>
+              <Link className={`nav-drawer-link${isActive('/contact') ? ' active' : ''}`} to="/contact" onClick={close}>Contact</Link>
+              <div className="nav-drawer-divider" />
+              <button className="nav-drawer-logout" onClick={logout}>Logout</button>
+            </>
+          ) : (
+            <>
+              <Link className={`nav-drawer-link${isActive('/') ? ' active' : ''}`} to="/" onClick={close}>Home</Link>
+              <Link className={`nav-drawer-link${isActive('/features') ? ' active' : ''}`} to="/features" onClick={close}>Features</Link>
+              <Link className={`nav-drawer-link${isActive('/about') ? ' active' : ''}`} to="/about" onClick={close}>About</Link>
+              <Link className={`nav-drawer-link${isActive('/contact') ? ' active' : ''}`} to="/contact" onClick={close}>Contact</Link>
+              <div className="nav-drawer-divider" />
+              <Link className="nav-drawer-btn-outline" to="/login" onClick={close}>Login</Link>
+              <Link className="nav-drawer-btn-solid" to="/register" onClick={close}>Sign Up</Link>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Backdrop — closes menu when tapping outside */}
+      {menuOpen && <div className="nav-backdrop" onClick={close} />}
     </nav>
   );
 }

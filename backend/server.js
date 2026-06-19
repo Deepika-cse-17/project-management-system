@@ -26,15 +26,26 @@ app.use('/api/contact',   require('./routes/contactRoutes'));
 app.get('/api/test-email', async (req, res) => {
   const { sendMail } = require('./utils/email');
   const to = req.query.to || process.env.EMAIL_USER;
+
+  // Show env var status (lengths only, never values)
+  const emailUser = (process.env.EMAIL_USER || '').trim();
+  const emailPass = (process.env.EMAIL_PASS || '').trim();
+  const envStatus = {
+    EMAIL_USER_set: !!emailUser,
+    EMAIL_USER_value: emailUser || '(empty)',
+    EMAIL_PASS_set: !!emailPass,
+    EMAIL_PASS_length: emailPass.length,
+  };
+
   try {
     await sendMail({
       to,
       subject: 'ProjectHub — Test Email',
       text: 'This is a test email from ProjectHub backend. Email is working!',
     });
-    res.json({ success: true, message: `Test email sent to ${to}` });
+    res.json({ success: true, message: `Test email sent to ${to}`, env: envStatus });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: err.message, env: envStatus });
   }
 });
 

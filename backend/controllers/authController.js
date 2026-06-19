@@ -132,7 +132,7 @@ exports.forgotPassword = async (req, res) => {
     user.password_reset_expires = expires;
     await user.save();
 
-    // Send OTP email — await so we can catch real errors
+    // Send OTP email — if it fails, tell the user instead of silently hiding it
     try {
       await sendMail({
         to: user.email,
@@ -149,10 +149,16 @@ exports.forgotPassword = async (req, res) => {
           </div>
         `,
       });
+      console.log('OTP email sent successfully to:', user.email);
     } catch (emailErr) {
-      console.error('OTP email send failed:', emailErr.message);
-      // Still return success to not reveal whether user exists,
-      // but log clearly so you can debug on Render
+      console.error('OTP email send failed to', user.email, ':', emailErr.message);
+      // Clear the token so the user can try again
+      user.password_reset_token = null;
+      user.password_reset_expires = null;
+      await user.save();
+      return res.status(500).json({
+        message: 'Could not send OTP email. Please try again in a few minutes.',
+      });
     }
 
     return res.json({ message: 'If an account exists, an OTP was sent' });

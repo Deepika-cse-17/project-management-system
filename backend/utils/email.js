@@ -1,60 +1,62 @@
 const nodemailer = require('nodemailer');
-const net = require('net');
 
-// Strip any accidental surrounding quotes from env vars
-const emailUser = (process.env.EMAIL_USER || '').replace(/^["']|["']$/g, '').trim();
-const emailPass = (process.env.EMAIL_PASS || '').replace(/^["']|["']$/g, '').trim();
+/**
+ * Creates a fresh transporter each time using current env vars.
+ * This avoids stale credentials if env vars are set after module load.
+ */
+function createTransporter() {
+  const user = (process.env.EMAIL_USER || '').replace(/^["']|["']$/g, '').trim();
+  const pass = (process.env.EMAIL_PASS || '').replace(/^["']|["']$/g, '').trim();
 
-if (!emailUser || !emailPass) {
-  console.error('[Email] WARNING: EMAIL_USER or EMAIL_PASS is not set!');
+  if (!user || !pass) {
+    throw new Error(
+      'EMAIL_USER or EMAIL_PASS is not set. ' +
+      'Go to Render dashboard > your backend service > Environment and add both variables.'
+    );
+  }
+
+  return nodemailer.createTransport({
+    service: 'gmail',   // uses Gmail's built-in config (IPv4 + correct ports)
+    auth: { user, pass },
+    connectionTimeout: 20000,
+    greetingTimeout: 20000,
+    socketTimeout: 20000,
+  });
 }
 
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,          // STARTTLS on 587
-  family: 4,              // Force IPv4 — Render free tier blocks IPv6
-  auth: {
-    user: emailUser,
-    pass: emailPass,
-  },
-  tls: {
-    rejectUnauthorized: true,
-  },
-  connectionTimeout: 20000,
-  greetingTimeout: 20000,
-  socketTimeout: 20000,
-});
-
-// Verify SMTP connection on startup
-transporter.verify((err) => {
-  if (err) {
-    console.error('[Email] SMTP verify FAILED:', err.message);
-    console.error('[Email] EMAIL_USER:', emailUser || '(empty)');
-    console.error('[Email] EMAIL_PASS length:', emailPass.length, '(should be 16 for Gmail App Password)');
-  } else {
-    console.log('[Email] SMTP connection verified — ready to send as', emailUser);
-  }
-});
+// Log credential status on startup (values never logged, only presence)
+const _user = (process.env.EMAIL_USER || '').replace(/^["']|["']$/g, '').trim();
+const _pass = (process.env.EMAIL_PASS || '').replace(/^["']|["']$/g, '').trim();
+if (!_user || !_pass) {
+  console.error('[Email] STARTUP WARNING: EMAIL_USER or EMAIL_PASS missing.');
+  console.error('[Email] Emails will fail until these are set on Render.');
+} else {
+  console.log('[Email] Credentials found at startup for:', _user);
+  // Verify connection once on startup
+  createTransporter().verify((err) => {
+    if (err) {
+      console.error('[Email] SMTP verify FAILED at startup:', err.message);
+    } else {
+      console.log('[Email] SMTP verified OK — emails will work.');
+    }
+  });
+}
 
 async function sendMail({ to, subject, text, html }) {
-  console.log('[Email] Attempting to send to:', to);
+  console.log('[Email] Sending to:', to, '| Subject:', subject);
 
-  if (!emailUser || !emailPass) {
-    throw new Error('Email credentials not configured. Set EMAIL_USER and EMAIL_PASS on Render.');
-  }
+  const transporter = createTransporter(); // fresh transporter = current env vars
 
-  const mailOptions = {
-    from: `ProjectHub <${emailUser}>`,
+  const info = await transporter.sendMail({
+    from: `ProjectHub <${(process.env.EMAIL_USER || '').replace(/^["']|["']$/g, '').trim()}>`,
     to,
     subject,
     text,
     html,
-  };
+  });
 
-  const info = await transporter.sendMail(mailOptions);
   console.log('[Email] Sent OK — MessageId:', info.messageId);
   return info;
 }
 
-module.exports = { sendMail, transporter };
+module.exports = { sendMail };
