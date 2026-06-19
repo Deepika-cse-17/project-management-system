@@ -136,13 +136,12 @@ exports.forgotPassword = async (req, res) => {
 
     // NON-BLOCKING EMAIL
     sendMail({
-      to: user.email,
-      subject: 'Your ProjectHub Password Reset OTP',
-      text: `Your OTP is: ${otp}. It is valid for 10 minutes.`,
-    }).catch((err) => {
-      console.log('OTP email failed:', err.message);
-    });
-
+  to: user.email,
+  subject: 'Your ProjectHub Password Reset OTP',
+  text: `Your OTP is: ${otp}. It is valid for 10 minutes.`,
+}).catch(err => {
+  console.log('OTP email failed (ignored):', err.message);
+});
     return res.json({ message: 'If an account exists, an OTP was sent' });
 
   } catch (err) {
