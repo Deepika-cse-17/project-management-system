@@ -1,350 +1,233 @@
-# API Documentation
+# API Documentation — ProjectHub
 
-Complete API reference for ProjectHub backend. All endpoints use JSON request/response format.
+Complete reference for the ProjectHub REST API.
 
-**Base URL:** `http://localhost:5000/api` (Development)
-
----
-
-## Table of Contents
-
-1. [Authentication Endpoints](#authentication-endpoints)
-2. [Project Endpoints](#project-endpoints)
-3. [Task Endpoints](#task-endpoints)
-4. [Dashboard Endpoints](#dashboard-endpoints)
-5. [Contact Endpoints](#contact-endpoints)
-6. [Error Handling](#error-handling)
-7. [Rate Limiting](#rate-limiting)
-8. [Authentication Headers](#authentication-headers)
+**Production base URL:** `https://project-management-system-4862.onrender.com/api`  
+**Local base URL:** `http://localhost:5000/api`  
+**Format:** All requests and responses use `application/json`
 
 ---
 
-## Authentication Endpoints
+## Contents
 
-### 1. Register User
+1. [Authentication](#1-authentication)
+2. [Projects](#2-projects)
+3. [Tasks](#3-tasks)
+4. [Dashboard](#4-dashboard)
+5. [Contact](#5-contact)
+6. [Utilities](#6-utilities)
+7. [Error Reference](#7-error-reference)
+8. [Rate Limiting](#8-rate-limiting)
+9. [Authorization Header](#9-authorization-header)
+10. [Axios Client](#10-axios-client)
+11. [cURL Examples](#11-curl-examples)
 
-Create a new user account.
+---
 
-**Endpoint:** `POST /auth/register`
+## 1. Authentication
 
-**Rate Limit:** 5 requests per minute
+### POST /auth/register
 
-**Request Body:**
+Create a new user account. Sends a welcome email on success.
+
+**Rate limited:** Yes
+
+**Request**
 ```json
 {
-  "full_name": "John Doe",
-  "email": "john@example.com",
-  "password": "SecurePass@123"
+  "full_name": "Deepika S",
+  "email": "deepika@example.com",
+  "password": "Hello@123"
 }
 ```
 
-**Password Requirements:**
+**Password rules**
 - Minimum 6 characters
-- At least 1 uppercase letter (A-Z)
-- At least 1 number (0-9)
-- At least 1 special character (!@#$%^&*(),.?"":{}|<>[]\/\'`~;:_+=-.)
+- At least 1 uppercase letter
+- At least 1 number
+- At least 1 special character (`!@#$%^&*` etc.)
 
-**Success Response (201):**
+**201 Success**
 ```json
 {
   "message": "User registered successfully",
   "userId": 1
 }
 ```
+A welcome email is sent to the user's address (non-blocking — registration succeeds even if email fails).
 
-**Welcome Email Sent:**
-```
-From: ProjectHub <supportprojecthub@gmail.com>
-Subject: Welcome to ProjectHub
-Body: Welcome to ProjectHub, John Doe! Your account has been created.
-```
-
-**Error Responses:**
-
-**400 - Validation Failed:**
+**400 Validation errors**
 ```json
 {
   "errors": [
-    {
-      "param": "email",
-      "msg": "Valid email required"
-    },
-    {
-      "param": "password",
-      "msg": "Password must contain at least one uppercase letter"
-    }
+    { "param": "email",    "msg": "Valid email required" },
+    { "param": "password", "msg": "Password must contain at least one uppercase letter" }
   ]
 }
 ```
 
-**400 - Duplicate Email:**
+**400 Duplicate email**
 ```json
-{
-  "message": "Email already in use"
-}
+{ "message": "Email already in use" }
 ```
 
-**500 - Server Error:**
+**500**
 ```json
-{
-  "message": "Server error"
-}
+{ "message": "Server error" }
 ```
 
 ---
 
-### 2. Login User
+### POST /auth/login
 
-Authenticate user and get JWT token.
+Authenticate and receive a JWT token.
 
-**Endpoint:** `POST /auth/login`
+**Rate limited:** Yes
 
-**Rate Limit:** 5 requests per minute
-
-**Request Body:**
+**Request**
 ```json
 {
-  "email": "john@example.com",
-  "password": "SecurePass@123"
+  "email": "deepika@example.com",
+  "password": "Hello@123"
 }
 ```
 
-**Success Response (200):**
+**200 Success**
 ```json
 {
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "user": {
     "id": 1,
-    "full_name": "John Doe",
-    "email": "john@example.com"
+    "full_name": "Deepika S",
+    "email": "deepika@example.com"
   }
 }
 ```
 
-**Token Expiration:** 7 days
+Store the `token` in `localStorage`. It expires in **7 days**.
 
-**Error Responses:**
-
-**400 - Invalid Credentials:**
+**400 Wrong credentials**
 ```json
-{
-  "message": "Invalid credentials"
-}
+{ "message": "Invalid credentials" }
+```
+
+**400 Missing fields**
+```json
+{ "message": "Email and password required" }
 ```
 
 ---
 
-### 3. Forgot Password (Request OTP)
+### POST /auth/logout
 
-Request password reset OTP for email account.
+Client-side logout. Clears the session on the backend (stateless — the token is simply discarded on the client).
 
-**Endpoint:** `POST /auth/forgot-password`
+**Request body:** empty
 
-**Rate Limit:** 5 requests per minute
-
-**Request Body:**
+**200 Success**
 ```json
-{
-  "email": "john@example.com"
-}
+{ "message": "Logged out" }
 ```
 
-**Success Response (200):**
-```json
-{
-  "message": "If an account exists, an OTP was sent"
-}
-```
-
-**Note:** Response is same whether email exists or not (security measure)
-
-**OTP Email Sent:**
-```
-From: ProjectHub <supportprojecthub@gmail.com>
-Subject: Your ProjectHub Password Reset OTP
-Body: Your OTP is: 845621. It is valid for 10 minutes.
-```
-
-**OTP Details:**
-- Format: 6 digits
-- Validity: 10 minutes
-- Single use (expires after reset or expiry)
-
-**Error Responses:**
-
-**400 - Missing Email:**
-```json
-{
-  "message": "Email is required"
-}
-```
-
----
-
-### 4. Reset Password (Using OTP)
-
-Set new password using OTP received via email.
-
-**Endpoint:** `POST /auth/reset-password`
-
-**Rate Limit:** 5 requests per minute
-
-**Request Body:**
-```json
-{
-  "email": "john@example.com",
-  "otp": "845621",
-  "newPassword": "NewSecurePass@456"
-}
-```
-
-**New Password Requirements:** Same as registration (6+ chars, uppercase, number, special char)
-
-**Success Response (200):**
-```json
-{
-  "message": "Password reset successful"
-}
-```
-
-**Error Responses:**
-
-**400 - Missing Fields:**
-```json
-{
-  "message": "Missing required fields"
-}
-```
-
-**400 - Invalid OTP:**
-```json
-{
-  "message": "Invalid OTP"
-}
-```
-
-**400 - OTP Expired:**
-```json
-{
-  "message": "OTP expired"
-}
-```
-
-**400 - No Reset Request:**
-```json
-{
-  "message": "No reset request found"
-}
-```
-
----
-
-### 5. Logout User
-
-Clear user session (client-side primarily).
-
-**Endpoint:** `POST /auth/logout`
-
-**Request Body:** (empty)
-
-**Success Response (200):**
-```json
-{
-  "message": "Logged out"
-}
-```
-
-**Frontend Implementation:**
+Frontend implementation:
 ```javascript
-// Clear token and user data
 localStorage.removeItem('token');
 localStorage.removeItem('rememberMe');
 localStorage.removeItem('userEmail');
-// Redirect to login
-window.location.href = '/login';
+navigate('/login');
 ```
 
 ---
 
-## Project Endpoints
+### POST /auth/forgot-password
 
-All project endpoints require authentication. Include JWT token in Authorization header:
-```
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
+Generate a 6-digit OTP and send it to the user's registered email.
 
-### 1. Create Project
+**Rate limited:** Yes
 
-Create new project for authenticated user.
-
-**Endpoint:** `POST /projects`
-
-**Auth Required:** ✅ Yes
-
-**Request Body:**
+**Request**
 ```json
-{
-  "project_name": "College Portal",
-  "description": "Web portal for college management",
-  "start_date": "2024-06-01",
-  "end_date": "2024-12-31",
-  "status": "Not Started"
-}
+{ "email": "deepika@example.com" }
 ```
 
-**Field Specifications:**
-| Field | Type | Required | Max Length | Valid Values |
-|-------|------|----------|-----------|-------------|
-| project_name | String | ✅ | 255 | Any text |
-| description | Text | ❌ | 65535 | Any text |
-| start_date | Date | ❌ | - | YYYY-MM-DD |
-| end_date | Date | ❌ | - | YYYY-MM-DD |
-| status | Enum | ❌ | - | "Not Started", "In Progress", "Completed" |
-
-**Success Response (201):**
+**200 Success** (returned whether or not the account exists — prevents user enumeration)
 ```json
-{
-  "id": 1,
-  "project_name": "College Portal",
-  "description": "Web portal for college management",
-  "status": "Not Started",
-  "start_date": "2024-06-01",
-  "end_date": "2024-12-31",
-  "user_id": 1,
-  "createdAt": "2024-06-19T10:30:45.000Z",
-  "updatedAt": "2024-06-19T10:30:45.000Z"
-}
+{ "message": "If an account exists, an OTP was sent" }
 ```
 
-**Error Response (400):**
+**OTP properties**
+- 6 digits, e.g. `847312`
+- Valid for **10 minutes**
+- Single use — cleared after reset or expiry
+
+**500 Email delivery failed**
 ```json
-{
-  "message": "Validation error",
-  "details": "project_name is required"
-}
+{ "message": "Could not send OTP email. Please try again in a few minutes." }
+```
+When this happens the OTP is also cleared so the user can retry cleanly.
+
+**400 Missing email**
+```json
+{ "message": "Email is required" }
 ```
 
 ---
 
-### 2. Get All Projects
+### POST /auth/reset-password
 
-Retrieve all projects for logged-in user.
+Set a new password using the OTP received by email.
 
-**Endpoint:** `GET /projects`
+**Rate limited:** Yes
 
-**Auth Required:** ✅ Yes
-
-**Query Parameters:**
+**Request**
+```json
+{
+  "email": "deepika@example.com",
+  "otp": "847312",
+  "newPassword": "NewPass@456"
+}
 ```
-?search=Portal&status=In%20Progress
+
+`newPassword` must meet the same rules as registration.
+
+**200 Success**
+```json
+{ "message": "Password reset successful" }
 ```
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| search | String | Filter by project name (partial match) |
-| status | String | Filter by status: "All", "Not Started", "In Progress", "Completed" |
+**400 — various failure cases**
+```json
+{ "message": "Missing required fields" }
+{ "message": "Invalid request" }
+{ "message": "No reset request found" }
+{ "message": "Invalid OTP" }
+{ "message": "OTP expired" }
+```
 
-**Success Response (200):**
+---
+
+## 2. Projects
+
+All project endpoints require a valid JWT in the `Authorization` header.
+
+```
+Authorization: Bearer <token>
+```
+
+---
+
+### GET /projects
+
+List all projects belonging to the authenticated user.
+
+**Query parameters**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `search` | string | Partial match on project name |
+| `status` | string | `All` \| `Not Started` \| `In Progress` \| `Completed` |
+
+**200 Success**
 ```json
 [
   {
@@ -352,294 +235,245 @@ Retrieve all projects for logged-in user.
     "project_name": "College Portal",
     "description": "Web portal for college management",
     "status": "In Progress",
-    "start_date": "2024-06-01",
-    "end_date": "2024-12-31",
+    "start_date": "2026-01-01",
+    "end_date": "2026-12-31",
     "user_id": 1,
-    "createdAt": "2024-06-19T10:30:45.000Z",
-    "updatedAt": "2024-06-19T10:30:45.000Z"
-  },
-  {
-    "id": 2,
-    "project_name": "Mobile App",
-    "description": "Cross-platform mobile application",
-    "status": "Not Started",
-    "start_date": "2024-07-01",
-    "end_date": "2025-01-31",
-    "user_id": 1,
-    "createdAt": "2024-06-19T11:15:22.000Z",
-    "updatedAt": "2024-06-19T11:15:22.000Z"
+    "createdAt": "2026-06-01T10:00:00.000Z",
+    "updatedAt": "2026-06-15T08:30:00.000Z"
   }
 ]
 ```
 
-**Pagination:** Future feature (currently returns all)
+---
+
+### POST /projects
+
+Create a new project.
+
+**Request**
+```json
+{
+  "project_name": "Mobile App",
+  "description": "Cross-platform mobile application",
+  "status": "Not Started",
+  "start_date": "2026-07-01",
+  "end_date": "2026-12-31"
+}
+```
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `project_name` | string | Yes | Max 255 chars |
+| `description` | string | No | |
+| `status` | enum | No | Default: `Not Started` |
+| `start_date` | date | No | `YYYY-MM-DD` |
+| `end_date` | date | No | `YYYY-MM-DD` |
+
+**201 Success** — returns the created project object
+
+```json
+{
+  "id": 2,
+  "project_name": "Mobile App",
+  "description": "Cross-platform mobile application",
+  "status": "Not Started",
+  "start_date": "2026-07-01",
+  "end_date": "2026-12-31",
+  "user_id": 1,
+  "createdAt": "2026-06-19T10:30:00.000Z",
+  "updatedAt": "2026-06-19T10:30:00.000Z"
+}
+```
 
 ---
 
-### 3. Get Project Details
+### GET /projects/:id
 
-Retrieve specific project with associated tasks.
+Get a single project including its tasks.
 
-**Endpoint:** `GET /projects/:id`
-
-**Auth Required:** ✅ Yes
-
-**URL Parameters:**
-```
-/projects/1
-```
-
-**Success Response (200):**
+**200 Success**
 ```json
 {
   "id": 1,
   "project_name": "College Portal",
   "description": "Web portal for college management",
   "status": "In Progress",
-  "start_date": "2024-06-01",
-  "end_date": "2024-12-31",
+  "start_date": "2026-01-01",
+  "end_date": "2026-12-31",
   "user_id": 1,
   "Tasks": [
     {
       "id": 1,
-      "task_name": "Design Database Schema",
-      "description": "Create ER diagram and database design",
+      "task_name": "Design database schema",
+      "description": "ER diagram and table definitions",
       "priority": "High",
       "status": "Completed",
-      "due_date": "2024-06-15",
-      "project_id": 1
-    },
-    {
-      "id": 2,
-      "task_name": "Backend API Development",
-      "description": "Develop REST APIs",
-      "priority": "High",
-      "status": "In Progress",
-      "due_date": "2024-07-15",
-      "project_id": 1
+      "due_date": "2026-02-01",
+      "project_id": 1,
+      "createdAt": "2026-01-10T09:00:00.000Z",
+      "updatedAt": "2026-02-01T17:00:00.000Z"
     }
   ],
-  "createdAt": "2024-06-19T10:30:45.000Z",
-  "updatedAt": "2024-06-19T10:30:45.000Z"
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "updatedAt": "2026-06-15T08:30:00.000Z"
 }
 ```
 
-**Error Response (404):**
+**404**
 ```json
-{
-  "message": "Project not found"
-}
+{ "message": "Project not found" }
 ```
 
 ---
 
-### 4. Update Project
+### PUT /projects/:id
 
-Modify existing project details.
+Update one or more fields of a project. Only include fields you want to change.
 
-**Endpoint:** `PUT /projects/:id`
-
-**Auth Required:** ✅ Yes
-
-**Request Body:**
+**Request**
 ```json
 {
-  "project_name": "College Portal v2",
-  "status": "In Progress",
-  "end_date": "2025-01-31"
+  "status": "Completed",
+  "end_date": "2026-11-30"
 }
 ```
 
-**Note:** Only provide fields you want to update
+**200 Success** — returns the full updated project object
 
-**Success Response (200):**
+**404**
 ```json
-{
-  "id": 1,
-  "project_name": "College Portal v2",
-  "description": "Web portal for college management",
-  "status": "In Progress",
-  "start_date": "2024-06-01",
-  "end_date": "2025-01-31",
-  "user_id": 1,
-  "createdAt": "2024-06-19T10:30:45.000Z",
-  "updatedAt": "2024-06-19T14:22:10.000Z"
-}
+{ "message": "Project not found" }
 ```
 
 ---
 
-### 5. Delete Project
+### DELETE /projects/:id
 
-Remove project and all associated tasks.
+Delete a project. All tasks inside it are automatically deleted (cascade).
 
-**Endpoint:** `DELETE /projects/:id`
-
-**Auth Required:** ✅ Yes
-
-**Request Body:** (empty)
-
-**Success Response (200):**
+**200 Success**
 ```json
-{
-  "message": "Project deleted successfully"
-}
+{ "message": "Project deleted successfully" }
 ```
 
-**Cascade Delete:** All tasks in project are automatically deleted
-
-**Error Response (404):**
+**404**
 ```json
-{
-  "message": "Project not found"
-}
+{ "message": "Project not found" }
 ```
 
 ---
 
-## Task Endpoints
+## 3. Tasks
 
-All task endpoints require authentication.
-
-### 1. Create Task
-
-Create new task within a project.
-
-**Endpoint:** `POST /tasks`
-
-**Auth Required:** ✅ Yes
-
-**Request Body:**
-```json
-{
-  "task_name": "Design Database Schema",
-  "description": "Create ER diagram and define tables",
-  "priority": "High",
-  "status": "Pending",
-  "due_date": "2024-06-25",
-  "project_id": 1
-}
-```
-
-**Field Specifications:**
-| Field | Type | Required | Valid Values |
-|-------|------|----------|-------------|
-| task_name | String | ✅ | Any text (max 255) |
-| description | Text | ❌ | Any text |
-| priority | Enum | ❌ | "Low", "Medium", "High" |
-| status | Enum | ❌ | "Pending", "In Progress", "Completed" |
-| due_date | Date | ❌ | YYYY-MM-DD |
-| project_id | Integer | ✅ | Valid project ID |
-
-**Success Response (201):**
-```json
-{
-  "id": 1,
-  "task_name": "Design Database Schema",
-  "description": "Create ER diagram and define tables",
-  "priority": "High",
-  "status": "Pending",
-  "due_date": "2024-06-25",
-  "project_id": 1,
-  "createdAt": "2024-06-19T10:45:30.000Z",
-  "updatedAt": "2024-06-19T10:45:30.000Z"
-}
-```
+All task endpoints require JWT authentication.
 
 ---
 
-### 2. Get All Tasks
+### GET /tasks
 
-Retrieve all tasks (optionally filtered by project).
+List tasks. Filter by project or status.
 
-**Endpoint:** `GET /tasks`
+**Query parameters**
 
-**Auth Required:** ✅ Yes
+| Param | Type | Description |
+|-------|------|-------------|
+| `project_id` | integer | Return tasks for this project only |
+| `status` | string | `Pending` \| `In Progress` \| `Completed` |
 
-**Query Parameters:**
-```
-?project_id=1&status=In%20Progress
-```
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| project_id | Integer | Filter by project |
-| status | String | Filter by status |
-
-**Success Response (200):**
+**200 Success**
 ```json
 [
   {
     "id": 1,
-    "task_name": "Design Database Schema",
+    "task_name": "Design database schema",
+    "description": "ER diagram and table definitions",
     "priority": "High",
-    "status": "In Progress",
-    "due_date": "2024-06-25",
-    "project_id": 1
+    "status": "Completed",
+    "due_date": "2026-02-01",
+    "project_id": 1,
+    "createdAt": "2026-01-10T09:00:00.000Z",
+    "updatedAt": "2026-02-01T17:00:00.000Z"
   }
 ]
 ```
 
 ---
 
-### 3. Update Task
+### POST /tasks
 
-Modify task details and status.
+Create a task inside a project.
 
-**Endpoint:** `PUT /tasks/:id`
-
-**Auth Required:** ✅ Yes
-
-**Request Body:**
+**Request**
 ```json
 {
-  "status": "Completed",
-  "priority": "Medium"
-}
-```
-
-**Success Response (200):**
-```json
-{
-  "id": 1,
-  "task_name": "Design Database Schema",
-  "priority": "Medium",
-  "status": "Completed",
-  "due_date": "2024-06-25",
+  "task_name": "Build REST API",
+  "description": "Implement all CRUD endpoints",
+  "priority": "High",
+  "status": "Pending",
+  "due_date": "2026-08-01",
   "project_id": 1
 }
 ```
 
+| Field | Type | Required | Valid values |
+|-------|------|----------|-------------|
+| `task_name` | string | Yes | Max 255 chars |
+| `description` | string | No | |
+| `priority` | enum | No | `Low` \| `Medium` \| `High` (default: `Medium`) |
+| `status` | enum | No | `Pending` \| `In Progress` \| `Completed` (default: `Pending`) |
+| `due_date` | date | No | `YYYY-MM-DD` |
+| `project_id` | integer | Yes | Must be a project owned by the user |
+
+**201 Success** — returns the created task object
+
 ---
 
-### 4. Delete Task
+### PUT /tasks/:id
 
-Remove task from project.
+Update task fields. Only include what you want to change.
 
-**Endpoint:** `DELETE /tasks/:id`
-
-**Auth Required:** ✅ Yes
-
-**Success Response (200):**
+**Request**
 ```json
 {
-  "message": "Task deleted successfully"
+  "status": "In Progress",
+  "priority": "Medium"
 }
+```
+
+**200 Success** — returns the updated task object
+
+**404**
+```json
+{ "message": "Task not found" }
 ```
 
 ---
 
-## Dashboard Endpoints
+### DELETE /tasks/:id
 
-### Get Dashboard Statistics
+Delete a task.
 
-Retrieve user's dashboard metrics.
+**200 Success**
+```json
+{ "message": "Task deleted successfully" }
+```
 
-**Endpoint:** `GET /dashboard`
+**404**
+```json
+{ "message": "Task not found" }
+```
 
-**Auth Required:** ✅ Yes
+---
 
-**Success Response (200):**
+## 4. Dashboard
+
+### GET /dashboard
+
+Returns aggregated statistics for the authenticated user.
+
+**Auth required:** Yes
+
+**200 Success**
 ```json
 {
   "totalProjects": 5,
@@ -650,202 +484,195 @@ Retrieve user's dashboard metrics.
 }
 ```
 
-**Metric Definitions:**
-- **totalProjects**: Count of all projects owned by user
-- **projectsInProgress**: Count of projects with status "In Progress"
-- **totalTasks**: Count of all tasks across user's projects
-- **completedTasks**: Count of tasks with status "Completed"
-- **pendingTasks**: Count of tasks with status "Pending"
+| Field | Description |
+|-------|-------------|
+| `totalProjects` | All projects owned by the user |
+| `projectsInProgress` | Projects with status `In Progress` |
+| `totalTasks` | All tasks across the user's projects |
+| `completedTasks` | Tasks with status `Completed` |
+| `pendingTasks` | Tasks with status `Pending` |
 
 ---
 
-## Contact Endpoints
+## 5. Contact
 
-### Submit Contact Form
+### POST /contact
 
-Send message to support team.
+Submit a contact message. Sends an email to the support inbox.
 
-**Endpoint:** `POST /contact`
+**Auth required:** No
 
-**Auth Required:** ❌ No
-
-**Rate Limit:** 5 requests per minute
-
-**Request Body:**
+**Request**
 ```json
 {
-  "name": "John Doe",
-  "email": "john@example.com",
-  "subject": "Feature Request",
-  "message": "I would like to request the ability to export projects as PDF"
+  "name": "Deepika S",
+  "email": "deepika@example.com",
+  "subject": "Feature request",
+  "message": "Can you add PDF export for projects?"
 }
 ```
 
-**Success Response (200):**
+All four fields are required.
+
+**200 Success**
 ```json
-{
-  "message": "Message sent successfully"
-}
+{ "message": "Message sent successfully" }
 ```
 
-**Email Sent to Support:**
-```
-From: John Doe <john@example.com>
-To: supportprojecthub@gmail.com
-Subject: Contact message: Feature Request
-
-Name: John Doe
-Email: john@example.com
-Subject: Feature Request
-Message: I would like to request the ability to export projects as PDF
-```
-
-**Error Response (400):**
+**400 Missing fields**
 ```json
-{
-  "message": "All fields are required."
-}
+{ "message": "All fields are required." }
 ```
 
-**Error Response (500):**
+**500 Email failed**
 ```json
-{
-  "message": "Unable to send message. Please try again later."
-}
+{ "message": "Unable to send message. Please try again later." }
 ```
 
 ---
 
-## Error Handling
+## 6. Utilities
 
-### HTTP Status Codes
+### GET /test-email
 
-| Code | Meaning | Example |
-|------|---------|---------|
-| 200 | OK | Successful GET/PUT |
-| 201 | Created | Successful POST |
-| 400 | Bad Request | Invalid input, validation failed |
-| 401 | Unauthorized | Missing/invalid JWT token |
-| 404 | Not Found | Resource doesn't exist |
-| 429 | Too Many Requests | Rate limit exceeded |
-| 500 | Server Error | Internal server error |
+Diagnose email delivery. Sends a test email and reports the result.  
+Remove or protect this route before going to production.
 
-### Error Response Format
+**Query parameters**
 
+| Param | Default | Description |
+|-------|---------|-------------|
+| `to` | `EMAIL_USER` | Destination address |
+
+**Example**
+```
+GET /api/test-email?to=deepika@example.com
+```
+
+**200 Success**
 ```json
 {
-  "message": "Error description",
+  "success": true,
+  "message": "Test email sent to deepika@example.com",
+  "env": {
+    "EMAIL_USER_set": true,
+    "EMAIL_USER_value": "supportprojecthub@gmail.com",
+    "EMAIL_PASS_set": true,
+    "EMAIL_PASS_length": 16
+  }
+}
+```
+
+**500 Failure**
+```json
+{
+  "success": false,
+  "error": "connect ENETUNREACH ...",
+  "env": {
+    "EMAIL_USER_set": false,
+    "EMAIL_USER_value": "(empty)",
+    "EMAIL_PASS_set": false,
+    "EMAIL_PASS_length": 0
+  }
+}
+```
+
+Use the `env` block to confirm whether Render has the correct environment variables set.
+
+---
+
+## 7. Error Reference
+
+### HTTP status codes
+
+| Code | Meaning |
+|------|---------|
+| 200 | OK |
+| 201 | Created |
+| 400 | Bad request — validation error or business rule violation |
+| 401 | Unauthorized — missing or invalid JWT |
+| 404 | Not found |
+| 429 | Too many requests — rate limit exceeded |
+| 500 | Server error |
+
+### 401 — unauthorized
+```json
+{ "message": "Access Denied" }
+```
+The frontend interceptor automatically clears the token and redirects to `/login` on 401.
+
+### 429 — rate limit
+```
+HTTP/1.1 429 Too Many Requests
+```
+
+### Validation error shape
+```json
+{
   "errors": [
-    {
-      "param": "field_name",
-      "msg": "Specific validation error"
-    }
+    { "param": "field_name", "msg": "Error description" }
   ]
 }
 ```
 
-### Common Error Scenarios
+---
 
-**Missing Authentication Token:**
-```
-Status: 401
-Response: {"message": "Access Denied"}
-```
+## 8. Rate Limiting
 
-**Invalid Token:**
-```
-Status: 401
-Response: Redirects to /login
-```
+Applied to: `/auth/register`, `/auth/login`, `/auth/forgot-password`, `/auth/reset-password`
 
-**Rate Limit Exceeded:**
-```
-Status: 429
-Response: {"message": "Too many attempts, please try again in a minute"}
-```
+| Setting | Value |
+|---------|-------|
+| Window | 15 minutes |
+| Max requests per IP | 100 |
+| Headers returned | `RateLimit-*` (standard) |
+
+`app.set('trust proxy', 1)` is configured so the correct client IP is read from `X-Forwarded-For` on Render.
 
 ---
 
-## Rate Limiting
+## 9. Authorization Header
 
-### Global Rate Limiter Configuration
+Protected endpoints require:
 
-| Endpoint Group | Limit | Window |
-|---|---|---|
-| Authentication | 5 requests | 1 minute |
-| Forgot Password | 5 requests | 1 minute |
-| Contact Form | 5 requests | 1 minute |
-| Other endpoints | None | - |
-
-### Rate Limit Headers
-
-Responses include rate limit information:
 ```
-X-RateLimit-Limit: 5
-X-RateLimit-Remaining: 4
-X-RateLimit-Reset: 1623062460
+Authorization: Bearer <jwt_token>
 ```
 
----
-
-## Authentication Headers
-
-### JWT Token Format
-
-Bearer token format:
-```
-Authorization: Bearer <token>
-```
-
-### Example Request with Authentication
-
-```bash
-curl -X GET http://localhost:5000/api/projects \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
-  -H "Content-Type: application/json"
-```
-
-### Token Payload
-
-Decoded JWT token contains:
+**Token payload (decoded)**
 ```json
 {
   "id": 1,
-  "email": "john@example.com",
-  "iat": 1623062460,
-  "exp": 1623667260
+  "email": "deepika@example.com",
+  "iat": 1750000000,
+  "exp": 1750604800
 }
 ```
 
-- **iat**: Token issued at (Unix timestamp)
-- **exp**: Token expiration (7 days after issue)
-
-### Automatic Token Refresh
-
-Frontend automatically handles expired tokens:
-1. API call returns 401
-2. Frontend clears token from localStorage
-3. User redirected to login page
+- `iat` — issued at (Unix timestamp)
+- `exp` — expiry, 7 days after issue
 
 ---
 
-## Axios Client Setup (Frontend)
+## 10. Axios Client
+
+The frontend uses a shared Axios instance (`src/services/api.js`):
 
 ```javascript
 import axios from 'axios';
 
-const api = axios.create({ 
-  baseURL: 'http://localhost:5000/api' 
+const api = axios.create({
+  baseURL: 'https://project-management-system-4862.onrender.com/api'
 });
 
-// Auto-attach JWT token to all requests
+// Attach JWT to every request
 api.interceptors.request.use(config => {
   const token = localStorage.getItem('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// Handle 401 responses
+// Auto-logout on token expiry
 api.interceptors.response.use(
   res => res,
   err => {
@@ -860,143 +687,99 @@ api.interceptors.response.use(
 export default api;
 ```
 
-### Usage
-
+**Usage**
 ```javascript
-// POST request
-const response = await api.post('/auth/login', { email, password });
-const { token } = response.data;
+// Register
+await api.post('/auth/register', { full_name, email, password });
 
-// GET request with token
-const projects = await api.get('/projects');
+// Login
+const { data } = await api.post('/auth/login', { email, password });
+localStorage.setItem('token', data.token);
 
-// PUT request
-await api.put('/projects/1', { status: 'In Progress' });
+// Get projects (token attached automatically)
+const { data: projects } = await api.get('/projects');
 
-// DELETE request
-await api.delete('/tasks/5');
+// Create task
+await api.post('/tasks', { task_name, priority, due_date, project_id });
+
+// Update project status
+await api.put(`/projects/${id}`, { status: 'Completed' });
+
+// Delete task
+await api.delete(`/tasks/${id}`);
 ```
 
 ---
 
-## Postman Collection
-
-### Setup Postman Environment
-
-1. Create new Environment: "ProjectHub Dev"
-2. Add variables:
-   - `base_url`: http://localhost:5000/api
-   - `token`: (auto-populated after login)
-   - `project_id`: (set after creating project)
-
-3. Import requests from collection JSON (available on GitHub)
-
-### Example Workflow in Postman
-
-```
-1. POST /auth/register
-   ↓
-2. POST /auth/login → Copy token to {{token}}
-   ↓
-3. POST /projects → Copy id to {{project_id}}
-   ↓
-4. GET /projects/{{project_id}}
-   ↓
-5. POST /tasks → Create task
-   ↓
-6. GET /dashboard → View stats
-```
-
----
-
-## Response Examples by Scenario
-
-### Successful Registration Flow
-```
-Request: POST /auth/register
-Response: 201 Created
-Body: { "message": "User registered successfully", "userId": 1 }
-Email: Welcome email sent
-```
-
-### Successful Login Flow
-```
-Request: POST /auth/login
-Response: 200 OK
-Body: { "token": "...", "user": { "id": 1, "full_name": "John", "email": "john@..." } }
-Action: Frontend saves token to localStorage
-```
-
-### Successful Project Creation Flow
-```
-Request: POST /projects
-Auth: ✅ Valid JWT token
-Response: 201 Created
-Body: { "id": 1, "project_name": "...", ... }
-```
-
-### Failed Authentication Flow
-```
-Request: GET /projects
-Auth: ❌ Missing/Invalid token
-Response: 401 Unauthorized
-Frontend Action: Clear localStorage, redirect to /login
-```
-
----
-
-## API Testing Commands
-
-### Using cURL
+## 11. cURL Examples
 
 ```bash
+BASE=https://project-management-system-4862.onrender.com/api
+
 # Register
-curl -X POST http://localhost:5000/api/auth/register \
+curl -X POST $BASE/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"full_name":"John","email":"john@test.com","password":"Pass@123"}'
+  -d '{"full_name":"Deepika S","email":"deepika@example.com","password":"Hello@123"}'
 
-# Login
-curl -X POST http://localhost:5000/api/auth/login \
+# Login — copy the token from the response
+curl -X POST $BASE/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"john@test.com","password":"Pass@123"}'
+  -d '{"email":"deepika@example.com","password":"Hello@123"}'
 
-# Get projects (with token)
-curl -X GET http://localhost:5000/api/projects \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+# Set token variable
+TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+# Get dashboard stats
+curl $BASE/dashboard \
+  -H "Authorization: Bearer $TOKEN"
+
+# List projects
+curl $BASE/projects \
+  -H "Authorization: Bearer $TOKEN"
 
 # Create project
-curl -X POST http://localhost:5000/api/projects \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+curl -X POST $BASE/projects \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"project_name":"My Project","description":"Test project"}'
-```
+  -d '{"project_name":"My Project","description":"Demo","status":"Not Started"}'
 
-### Using Node.js (axios)
+# Create task
+curl -X POST $BASE/tasks \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"task_name":"First task","priority":"High","project_id":1}'
 
-```javascript
-const axios = require('axios');
+# Update task status
+curl -X PUT $BASE/tasks/1 \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"Completed"}'
 
-const api = axios.create({ 
-  baseURL: 'http://localhost:5000/api' 
-});
+# Delete project
+curl -X DELETE $BASE/projects/1 \
+  -H "Authorization: Bearer $TOKEN"
 
-// Login and get token
-const loginRes = await api.post('/auth/login', {
-  email: 'john@test.com',
-  password: 'Pass@123'
-});
+# Forgot password
+curl -X POST $BASE/auth/forgot-password \
+  -H "Content-Type: application/json" \
+  -d '{"email":"deepika@example.com"}'
 
-const token = loginRes.data.token;
+# Reset password
+curl -X POST $BASE/auth/reset-password \
+  -H "Content-Type: application/json" \
+  -d '{"email":"deepika@example.com","otp":"847312","newPassword":"NewPass@456"}'
 
-// Get projects with token
-const projects = await api.get('/projects', {
-  headers: { Authorization: `Bearer ${token}` }
-});
+# Contact form
+curl -X POST $BASE/contact \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Deepika","email":"deepika@example.com","subject":"Hello","message":"Test message"}'
 
-console.log(projects.data);
+# Test email delivery
+curl "$BASE/test-email?to=deepika@example.com"
 ```
 
 ---
 
-**API Version:** 1.0.0  
-**Last Updated:** June 19, 2024
+**Version:** 1.1.0  
+**Last Updated:** June 2026  
+**Base URL:** https://project-management-system-4862.onrender.com/api
