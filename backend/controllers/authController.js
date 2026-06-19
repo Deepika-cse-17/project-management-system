@@ -43,15 +43,13 @@ exports.register = async (req, res) => {
       password: hashed,
     });
 
-    // ----------------------
-    // NON-BLOCKING EMAIL
-    // ----------------------
+    // Non-blocking welcome email
     sendMail({
       to: user.email,
       subject: 'Welcome to ProjectHub',
       text: `Welcome ${user.full_name}! Your account has been created successfully.`,
     }).catch((err) => {
-      console.log('Welcome email failed:', err.message);
+      console.error('Welcome email failed:', err.message);
     });
 
     return res.status(201).json({
@@ -134,14 +132,29 @@ exports.forgotPassword = async (req, res) => {
     user.password_reset_expires = expires;
     await user.save();
 
-    // NON-BLOCKING EMAIL
-    sendMail({
-  to: user.email,
-  subject: 'Your ProjectHub Password Reset OTP',
-  text: `Your OTP is: ${otp}. It is valid for 10 minutes.`,
-}).catch(err => {
-  console.log('OTP email failed (ignored):', err.message);
-});
+    // Send OTP email — await so we can catch real errors
+    try {
+      await sendMail({
+        to: user.email,
+        subject: 'Your ProjectHub Password Reset OTP',
+        text: `Your OTP is: ${otp}\n\nIt is valid for 10 minutes.\n\nIf you did not request this, please ignore this email.`,
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:24px">
+            <h2 style="color:#1a1a1a">Password Reset OTP</h2>
+            <p style="color:#666">Use the OTP below to reset your ProjectHub password. It expires in <strong>10 minutes</strong>.</p>
+            <div style="background:#f4f4f4;border-radius:8px;padding:20px 24px;text-align:center;margin:24px 0">
+              <span style="font-size:36px;font-weight:700;letter-spacing:8px;color:#1a1a1a">${otp}</span>
+            </div>
+            <p style="color:#999;font-size:13px">If you did not request a password reset, you can safely ignore this email.</p>
+          </div>
+        `,
+      });
+    } catch (emailErr) {
+      console.error('OTP email send failed:', emailErr.message);
+      // Still return success to not reveal whether user exists,
+      // but log clearly so you can debug on Render
+    }
+
     return res.json({ message: 'If an account exists, an OTP was sent' });
 
   } catch (err) {

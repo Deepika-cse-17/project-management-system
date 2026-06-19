@@ -1,33 +1,52 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
+  const [slowNotice, setSlowNotice] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const slowTimer = useRef(null);
   const navigate = useNavigate();
+
+  useEffect(() => () => clearTimeout(slowTimer.current), []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setMessage('');
+    setSlowNotice(false);
     setLoading(true);
+    slowTimer.current = setTimeout(() => setSlowNotice(true), 4000);
     try {
       await api.post('/auth/forgot-password', { email });
       setMessage('If an account exists, an OTP was sent to that email.');
-      // navigate to reset page with email prefilled
       setTimeout(() => navigate(`/reset-password?email=${encodeURIComponent(email)}`), 800);
     } catch (err) {
       setError(err.response?.data?.message || 'Request failed');
     } finally {
+      clearTimeout(slowTimer.current);
       setLoading(false);
+      setSlowNotice(false);
     }
   };
 
   return (
     <div className="auth-container">
+      {loading && (
+        <div className="loading-overlay">
+          <div className="loading-spinner"></div>
+          <p className="loading-message">Sending OTP…</p>
+          {slowNotice && (
+            <p className="loading-wake-notice">
+              ⏳ The server is waking up from sleep.<br />This can take up to 30 seconds on first load.
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="auth-split-single">
         <div className="auth-right">
           <div className="auth-heading">Forgot Password</div>
