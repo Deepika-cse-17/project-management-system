@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const api = axios.create({ baseURL:'https://project-management-system-4862.onrender.com' });
+const api = axios.create({ baseURL:'https://project-management-system-4862.onrender.com/api' });
 
 // Automatically attach JWT token to every request
 api.interceptors.request.use(config => {
